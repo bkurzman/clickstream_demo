@@ -26,8 +26,8 @@ class DemoControl(Script):
   def status(self, env):
     import params
     env.set_params(params)
-    market_master_pid_file="/tmp/clickstream_master.pid"
-    Execute( format("cat {market_master_pid_file}") )
+    clickstream_master_pid_file="/tmp/clickstream_master.pid"
+    Execute( format("cat {clickstream_master_pid_file}") )
 
 
   def configure(self, env):
