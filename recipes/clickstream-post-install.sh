@@ -282,3 +282,31 @@ generateData () {
   gunzip web-clicks.tsv.gz
 
 }
+
+deployTemplateToNifi () {
+        echo "*********************************Importing NIFI Template..."
+        cd $ROOT_PATH
+        wget https://github.com/bkurzman/clickstream_demo/blob/master/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/Clickstream-demo-template.xml
+        chmod 777 $ROOT_PATH/Twitter_Dashboard.xml
+        sleep 60
+        
+    TEMPLATEID=$(curl -v -F template=@"$ROOT_PATH/Clickstream-demo-template.xml" -X POST http://$AMBARI_HOST:9090/nifi-api/process-groups/root/templates/upload | grep -Po '<id>([a-z0-9-]+)' | grep -Po '>([a-z0-9-]+)' | grep -Po '([a-z0-9-]+)')
+        sleep 60
+        echo "*********************************Instantiating NIFI Flow..."
+        # Instantiate NIFI Template
+        curl -u admin:admin -i -H "Content-Type:application/json" -d "{\"templateId\":\"$TEMPLATEID\",\"originX\":100,\"originY\":100}" -X POST http://$AMBARI_HOST:9090/nifi-api/process-groups/root/template-instance
+        sleep 60
+
+        # Rename NIFI Root Group
+    echo "*********************************Renaming Nifi Root Group..."
+ROOT_GROUP_REVISION=$(curl -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
+
+    sleep 1
+    ROOT_GROUP_ID=$(curl -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root|grep -Po '("component":{"id":")([0-9a-zA-z\-]+)'| grep -Po '(:"[0-9a-zA-z\-]+)'| grep -Po '([0-9a-zA-z\-]+)')
+
+    PAYLOAD=$(echo "{\"id\":\"$ROOT_GROUP_ID\",\"revision\":{\"version\":$ROOT_GROUP_REVISION},\"component\":{\"id\":\"$ROOT_GROUP_ID\",\"name\":\"Biologics-Demo\"}}")
+
+    sleep 60
+    curl -d $PAYLOAD  -H "Content-Type: application/json" -X PUT http://$AMBARI_HOST:9090/nifi-api/process-groups/$ROOT_GROUP_ID
+    sleep 60
+}
