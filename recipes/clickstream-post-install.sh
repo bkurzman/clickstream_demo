@@ -231,32 +231,6 @@ captureEnvironment () {
 	. ~/.bash_profile
 }
 
-handleGroupPorts (){
-       	TARGET_GROUP=$1
-
-       	TARGETS=($(curl -u admin:admin -i -X GET $TARGET_GROUP/output-ports | grep -Po '\"uri\":\"([a-z0-9-://.]+)' | grep -Po '(?!.*\")([a-z0-9-://.]+)'))
-       	length=${#TARGETS[@]}
-       	echo $length
-       	echo ${TARGETS[0]}
-
-       	for ((i = 0; i < $length; i++))
-       	do
-       		ID=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"id":"([a-zA-z0-9\-]+)'|grep -Po ':"([a-zA-z0-9\-]+)'|grep -Po '([a-zA-z0-9\-]+)'|head -1)
-       		REVISION=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
-       		TYPE=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"type":"([a-zA-Z0-9\-.]+)' |grep -Po ':"([a-zA-Z0-9\-.]+)' |grep -Po '([a-zA-Z0-9\-.]+)' |head -1)
-       		echo "Current Processor Path: ${TARGETS[i]}"
-       		echo "Current Processor Revision: $REVISION"
-       		echo "Current Processor ID: $ID"
-
-       		echo "***************************Activating Port ${TARGETS[i]}..."
-
-       		PAYLOAD=$(echo "{\"id\":\"$ID\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$ID\",\"state\": \"RUNNING\"}}")
-
-       		echo "PAYLOAD"
-       		curl -u admin:admin -i -H "Content-Type:application/json" -d "${PAYLOAD}" -X PUT ${TARGETS[i]}
-       	done
-}
-
 createHDFSDirectories () {
   sudo -u hdfs hadoop fs -mkdir /demo
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream
@@ -419,3 +393,47 @@ handleGroupPorts (){
        		curl -u admin:admin -i -H "Content-Type:application/json" -d "${PAYLOAD}" -X PUT ${TARGETS[i]}
        	done
 }
+
+exec > >(tee -i /root/demo-install.log)
+exec 2>&1
+
+export ROOT_PATH=~
+echo "*********************************ROOT PATH IS: $ROOT_PATH"
+
+
+export AMBARI_HOST=$(hostname -f)
+echo "*********************************AMABRI HOST IS: $AMBARI_HOST"
+
+export CLUSTER_NAME=$(curl -u admin:admin -X GET http://$AMBARI_HOST:8080/api/v1/clusters |grep cluster_name|grep -Po ': "(.+)'|grep -Po '[a-zA-Z0-9\-_!?.]+')
+
+if [[ -z $CLUSTER_NAME ]]; then
+        echo "Could not connect to Ambari Server. Please run the install script on the same host where Ambari Server is installed."
+        exit 1
+else
+       	echo "*********************************CLUSTER NAME IS: $CLUSTER_NAME"
+fi
+
+export VERSION=`hdp-select status hadoop-client | sed 's/hadoop-client - \([0-9]\.[0-9]\).*/\1/'`
+export INTVERSION=$(echo $VERSION*10 | bc | grep -Po '([0-9][0-9])')
+echo "*********************************HDP VERSION IS: $VERSION"
+
+export HADOOP_USER_NAME=hdfs
+echo "*********************************HADOOP_USER_NAME set to HDFS"
+
+echo "********************************* Capturing Service Endpoint in the Environment"
+captureEnvironment
+
+echo "********************************* Creating HDFS Directories"
+createHDFSDirectories
+
+echo "********************************* Creating HIVE Tables"
+createHiveTables
+
+echo "********************************* Generating Data"
+generateData
+
+echo "********************************* Deploying Nifi Template"
+deployTemplateToNifi $ROOT_PATH/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/Clickstream-demo-template.xml Clickstream-Demo
+
+echo "********************************* Configuring Nifi Template"
+configureNifiTempate
