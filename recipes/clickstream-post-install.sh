@@ -284,29 +284,138 @@ generateData () {
 }
 
 deployTemplateToNifi () {
-        echo "*********************************Importing NIFI Template..."
-        cd $ROOT_PATH
-        wget https://github.com/bkurzman/clickstream_demo/blob/master/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/Clickstream-demo-template.xml
-        chmod 777 $ROOT_PATH/Twitter_Dashboard.xml
-        sleep 60
-        
-    TEMPLATEID=$(curl -v -F template=@"$ROOT_PATH/Clickstream-demo-template.xml" -X POST http://$AMBARI_HOST:9090/nifi-api/process-groups/root/templates/upload | grep -Po '<id>([a-z0-9-]+)' | grep -Po '>([a-z0-9-]+)' | grep -Po '([a-z0-9-]+)')
-        sleep 60
-        echo "*********************************Instantiating NIFI Flow..."
-        # Instantiate NIFI Template
-        curl -u admin:admin -i -H "Content-Type:application/json" -d "{\"templateId\":\"$TEMPLATEID\",\"originX\":100,\"originY\":100}" -X POST http://$AMBARI_HOST:9090/nifi-api/process-groups/root/template-instance
-        sleep 60
+       	TEMPLATE_DIR=$1
+       	TEMPLATE_NAME=$2
+       	
+       	echo "*********************************Importing NIFI Template..."
+       	# Import NIFI Template HDF 3.x
+       	# TEMPLATE_DIR should have been passed in by the caller install process
+       	sleep 1
+       	TEMPLATEID=$(curl -v -F template=@"$TEMPLATE_DIR" -X POST http://$NIFI_HOST:9090/nifi-api/process-groups/root/templates/upload | grep -Po '<id>([a-z0-9-]+)' | grep -Po '>([a-z0-9-]+)' | grep -Po '([a-z0-9-]+)')
+       	sleep 1
 
-        # Rename NIFI Root Group
-    echo "*********************************Renaming Nifi Root Group..."
-ROOT_GROUP_REVISION=$(curl -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
+       	# Instantiate NIFI Template 3.x
+       	echo "*********************************Instantiating NIFI Flow..."
+       	curl -u admin:admin -i -H "Content-Type:application/json" -d "{\"templateId\":\"$TEMPLATEID\",\"originX\":100,\"originY\":100}" -X POST http://$NIFI_HOST:9090/nifi-api/process-groups/root/template-instance
+       	sleep 1
 
-    sleep 1
-    ROOT_GROUP_ID=$(curl -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root|grep -Po '("component":{"id":")([0-9a-zA-z\-]+)'| grep -Po '(:"[0-9a-zA-z\-]+)'| grep -Po '([0-9a-zA-z\-]+)')
+       	# Rename NIFI Root Group HDF 3.x
+       	echo "*********************************Renaming Nifi Root Group..."
+       	ROOT_GROUP_REVISION=$(curl -X GET http://$NIFI_HOST:9090/nifi-api/process-groups/root |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
 
-    PAYLOAD=$(echo "{\"id\":\"$ROOT_GROUP_ID\",\"revision\":{\"version\":$ROOT_GROUP_REVISION},\"component\":{\"id\":\"$ROOT_GROUP_ID\",\"name\":\"Biologics-Demo\"}}")
+       	sleep 1
+       	ROOT_GROUP_ID=$(curl -X GET http://$NIFI_HOST:9090/nifi-api/process-groups/root|grep -Po '("component":{"id":")([0-9a-zA-z\-]+)'| grep -Po '(:"[0-9a-zA-z\-]+)'| grep -Po '([0-9a-zA-z\-]+)')
 
-    sleep 60
-    curl -d $PAYLOAD  -H "Content-Type: application/json" -X PUT http://$AMBARI_HOST:9090/nifi-api/process-groups/$ROOT_GROUP_ID
-    sleep 60
+       	PAYLOAD=$(echo "{\"id\":\"$ROOT_GROUP_ID\",\"revision\":{\"version\":$ROOT_GROUP_REVISION},\"component\":{\"id\":\"$ROOT_GROUP_ID\",\"name\":\"$TEMPLATE_NAME\"}}")
+
+       	sleep 1
+       	curl -d $PAYLOAD  -H "Content-Type: application/json" -X PUT http://$NIFI_HOST:9090/nifi-api/process-groups/$ROOT_GROUP_ID
+
+}
+
+configureNifiTempate () {
+	GROUP_TARGETS=$(curl -u admin:admin -i -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root/process-groups | grep -Po '\"uri\":\"([a-z0-9-://.]+)' | grep -Po '(?!.*\")([a-z0-9-://.]+)')
+    length=${#GROUP_TARGETS[@]}
+    echo $length
+    echo ${GROUP_TARGETS[0]}
+
+    #for ((i = 0; i < $length; i++))
+    for GROUP in $GROUP_TARGETS
+    do
+       	#CURRENT_GROUP=${GROUP_TARGETS[i]}
+       	CURRENT_GROUP=$GROUP
+       	echo "***********************************************************calling handle ports with group $CURRENT_GROUP"
+       	handleGroupPorts $CURRENT_GROUP
+       	echo "***********************************************************calling handle processors with group $CURRENT_GROUP"
+       	handleGroupProcessors $CURRENT_GROUP
+       	echo "***********************************************************done handle processors"
+    done
+
+    ROOT_TARGET=$(curl -u admin:admin -i -X GET http://$AMBARI_HOST:9090/nifi-api/process-groups/root| grep -Po '\"uri\":\"([a-z0-9-://.]+)' | grep -Po '(?!.*\")([a-z0-9-://.]+)')
+
+    handleGroupPorts $ROOT_TARGET
+
+    handleGroupProcessors $ROOT_TARGET
+}
+
+handleGroupProcessors (){
+       	TARGET_GROUP=$1
+
+       	TARGETS=($(curl -u admin:admin -i -X GET $TARGET_GROUP/processors | grep -Po '\"uri\":\"([a-z0-9-://.]+)' | grep -Po '(?!.*\")([a-z0-9-://.]+)'))
+       	length=${#TARGETS[@]}
+       	echo $length
+       	echo ${TARGETS[0]}
+
+       	for ((i = 0; i < $length; i++))
+       	do
+       		ID=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"id":"([a-zA-z0-9\-]+)'|grep -Po ':"([a-zA-z0-9\-]+)'|grep -Po '([a-zA-z0-9\-]+)'|head -1)
+       		REVISION=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
+       		TYPE=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"type":"([a-zA-Z0-9\-.]+)' |grep -Po ':"([a-zA-Z0-9\-.]+)' |grep -Po '([a-zA-Z0-9\-.]+)' |head -1)
+       		echo "Current Processor Path: ${TARGETS[i]}"
+       		echo "Current Processor Revision: $REVISION"
+       		echo "Current Processor ID: $ID"
+       		echo "Current Processor TYPE: $TYPE"
+
+       			if ! [ -z $(echo $TYPE|grep "Record") ]; then
+       				echo "***************************This is a Record Processor"
+
+       				RECORD_READER=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"record-reader":"[a-zA-Z0-9-]+'|grep -Po ':"[a-zA-Z0-9-]+'|grep -Po '[a-zA-Z0-9-]+'|head -1)
+                RECORD_WRITER=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"record-writer":"[a-zA-Z0-9-]+'|grep -Po ':"[a-zA-Z0-9-]+'|grep -Po '[a-zA-Z0-9-]+'|head -1)
+
+                echo "Record Reader: $RECORD_READER"
+                echo "Record Writer: $RECORD_WRITER"
+
+       				SCHEMA_REGISTRY=$(curl -u admin:admin -i -X GET http://$AMBARI_HOST:9090/nifi-api/controller-services/$RECORD_READER |grep -Po '"schema-registry":"[a-zA-Z0-9-]+'|grep -Po ':"[a-zA-Z0-9-]+'|grep -Po '[a-zA-Z0-9-]+'|head -1)
+
+       				echo "Schema Registry: $SCHEMA_REGISTRY"
+
+       				curl -u admin:admin -i -H "Content-Type:application/json" -X PUT -d "{\"id\":\"$SCHEMA_REGISTRY\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$SCHEMA_REGISTRY\",\"state\":\"ENABLED\",\"properties\":{\"url\":\"http:\/\/$AMBARI_HOST:7788\/api\/v1\"}}}" http://$AMBARI_HOST:9090/nifi-api/controller-services/$SCHEMA_REGISTRY
+
+       				curl -u admin:admin -i -H "Content-Type:application/json" -X PUT -d "{\"id\":\"$RECORD_READER\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$RECORD_READER\",\"state\":\"ENABLED\"}}" http://$AMBARI_HOST:9090/nifi-api/controller-services/$RECORD_READER
+
+       				curl -u admin:admin -i -H "Content-Type:application/json" -X PUT -d "{\"id\":\"$RECORD_WRITER\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$RECORD_WRITER\",\"state\":\"ENABLED\"}}" http://$AMBARI_HOST:9090/nifi-api/controller-services/$RECORD_WRITER
+
+       			fi
+       		if ! [ -z $(echo $TYPE|grep "PutKafka") ] || ! [ -z $(echo $TYPE|grep "PublishKafka") ]; then
+       			echo "***************************This is a PutKafka Processor"
+       			echo "***************************Updating Kafka Broker Porperty and Activating Processor..."
+       			if ! [ -z $(echo $TYPE|grep "PutKafka") ]; then
+                    PAYLOAD=$(echo "{\"id\":\"$ID\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$ID\",\"config\":{\"properties\":{\"Known Brokers\":\"$AMBARI_HOST:6667\"}},\"state\":\"RUNNING\"}}")
+                else
+                    PAYLOAD=$(echo "{\"id\":\"$ID\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$ID\",\"config\":{\"properties\":{\"bootstrap.servers\":\"$AMBARI_HOST:6667\"}},\"state\":\"RUNNING\"}}")
+                fi
+       		else
+       			echo "***************************Activating Processor..."
+       				PAYLOAD=$(echo "{\"id\":\"$ID\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$ID\",\"state\":\"RUNNING\"}}")
+       			fi
+       		echo "$PAYLOAD"
+
+       		curl -u admin:admin -i -H "Content-Type:application/json" -d "${PAYLOAD}" -X PUT ${TARGETS[i]}
+       	done
+}
+
+handleGroupPorts (){
+       	TARGET_GROUP=$1
+
+       	TARGETS=($(curl -u admin:admin -i -X GET $TARGET_GROUP/output-ports | grep -Po '\"uri\":\"([a-z0-9-://.]+)' | grep -Po '(?!.*\")([a-z0-9-://.]+)'))
+       	length=${#TARGETS[@]}
+       	echo $length
+       	echo ${TARGETS[0]}
+
+       	for ((i = 0; i < $length; i++))
+       	do
+       		ID=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"id":"([a-zA-z0-9\-]+)'|grep -Po ':"([a-zA-z0-9\-]+)'|grep -Po '([a-zA-z0-9\-]+)'|head -1)
+       		REVISION=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '\"version\":([0-9]+)'|grep -Po '([0-9]+)')
+       		TYPE=$(curl -u admin:admin -i -X GET ${TARGETS[i]} |grep -Po '"type":"([a-zA-Z0-9\-.]+)' |grep -Po ':"([a-zA-Z0-9\-.]+)' |grep -Po '([a-zA-Z0-9\-.]+)' |head -1)
+       		echo "Current Processor Path: ${TARGETS[i]}"
+       		echo "Current Processor Revision: $REVISION"
+       		echo "Current Processor ID: $ID"
+
+       		echo "***************************Activating Port ${TARGETS[i]}..."
+
+       		PAYLOAD=$(echo "{\"id\":\"$ID\",\"revision\":{\"version\":$REVISION},\"component\":{\"id\":\"$ID\",\"state\": \"RUNNING\"}}")
+
+       		echo "PAYLOAD"
+       		curl -u admin:admin -i -H "Content-Type:application/json" -d "${PAYLOAD}" -X PUT ${TARGETS[i]}
+       	done
 }
