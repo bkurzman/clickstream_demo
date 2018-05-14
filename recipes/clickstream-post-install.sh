@@ -238,21 +238,30 @@ createHDFSDirectories () {
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/products
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/users
   sudo -u hdfs hadoop fs -chown -R 777 /demo
-  hadoop fs -put clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/products.tsv /demo/clickstream/products
-  hadoop fs -put clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/users.tsv /demo/clickstream/users
+  hadoop fs -put /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/products.tsv /demo/clickstream/products
+  hadoop fs -put /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/users.tsv /demo/clickstream/users
+}
+
+createDirectories () {
+mkdir /root/demo
+chmod 777 /root/demo
+mkdir /root/demo/clickstream
+chmod 777 /root/demo/clickstream/
+mkdir /root/demo/clickstream/out
+chmod 777 /root/demo/clickstream/out/
 }
 
 createHiveTables () {
-  cp clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/hiveddl.sql /home/hdfs
+  cp /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/hiveddl.sql /home/hdfs
   sudo su hdfs -
   hive -f hiveddl.sql
 
 }
 
 generateData () {
-  ./clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/generate-clickstream-data.sh
-  mv /clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/clickstream-feed-generated.tsv /clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/infile.tsv
-  ./clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/transform.sh
+  ./root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/generate-clickstream-data.sh
+  mv /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/clickstream-feed-generated.tsv /clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/infile.tsv
+  ./root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/transform.sh
   gunzip web-clicks.tsv.gz
 
 }
@@ -425,6 +434,9 @@ captureEnvironment
 
 echo "********************************* Creating HDFS Directories"
 createHDFSDirectories
+
+echo "********************************* Creating Directories"
+createDirectories
 
 echo "********************************* Creating HIVE Tables"
 createHiveTables
