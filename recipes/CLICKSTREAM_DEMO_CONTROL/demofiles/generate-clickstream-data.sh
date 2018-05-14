@@ -13,7 +13,7 @@ while IFS= read -r line; do
     val1=`echo $line | awk -F "|" '{print $1}'`
     val2=`echo $line | awk -F "|" '{print $3}'`
     val3=`echo $line | awk -F "|" '{print $4}'`
-    val4=`gshuf -i 1-10 -n 1`
+    val4=`shuf -i 1-10 -n 1`
     randNum=$((val2/val1*val4 + val3/val1*val4*val4))
 
     pageId=$(($((randNum % 31)) + 1))
