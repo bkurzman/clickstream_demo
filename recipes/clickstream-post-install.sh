@@ -237,7 +237,7 @@ createHDFSDirectories () {
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/rawclicks
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/products
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/users
-  sudo -u hdfs hadoop fs -chown -R 777 /demo
+  sudo -u hdfs hadoop fs -chmod -R 777 /demo
   hadoop fs -put /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/products.tsv /demo/clickstream/products
   hadoop fs -put /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/users.tsv /demo/clickstream/users
 }
@@ -254,7 +254,7 @@ chmod 777 /root/demo/clickstream/out/
 createHiveTables () {
   cp /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/hiveddl.sql /home/hdfs
   sudo su hdfs -
-  hive -f hiveddl.sql
+  hive -f /home/hdfs/hiveddl.sql
 
 }
 
