@@ -253,8 +253,7 @@ chmod 777 /root/demo/clickstream/out/
 
 createHiveTables () {
   cp /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/hiveddl.sql /home/hdfs
-  sudo su hdfs -
-  hive -f /home/hdfs/hiveddl.sql
+  sudo -u hdfs hive -f /home/hdfs/hiveddl.sql
 
 }
 
