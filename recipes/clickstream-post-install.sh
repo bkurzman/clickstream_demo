@@ -238,8 +238,8 @@ createHDFSDirectories () {
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/products
   sudo -u hdfs hadoop fs -mkdir /demo/clickstream/users
   sudo -u hdfs hadoop fs -chown -R 777 /demo
-  hadoop fs -put /clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/products.tsv /demo/clickstream/products
-  hadoop fs -put /clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/users.tsv /demo/clickstream/users
+  hadoop fs -put clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/products.tsv /demo/clickstream/products
+  hadoop fs -put clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/users.tsv /demo/clickstream/users
 }
 
 createHiveTables () {
