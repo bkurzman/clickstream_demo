@@ -243,6 +243,7 @@ createHDFSDirectories () {
 }
 
 createDirectories () {
+chmod 777 /root
 mkdir /root/demo
 chmod 777 /root/demo
 mkdir /root/demo/clickstream
