@@ -260,6 +260,8 @@ createHiveTables () {
 generateData () {
   chmod +x /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/generate-clickstream-data.sh
   chmod +x /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/transform.sh
+  chmod +x /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/nc-webclicks.sh
+  chmod +x /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/push-clickstream-to-tcp-9797.sh
   cd /root/clickstream_demo/recipes/CLICKSTREAM_DEMO_CONTROL/demofiles/
   ./generate-clickstream-data.sh
   mv clickstream-feed-generated.tsv infile.tsv
