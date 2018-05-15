@@ -1,6 +1,6 @@
 #!/bin/bash
 
-filename="webclicks.tsv"
+filename="web-clicks.tsv"
 
 while IFS= read -r line; do
 
